@@ -1,0 +1,46 @@
+services:
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL database
+  # ---------------------------------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: job_match
+      POSTGRES_USER: job_match_user
+      POSTGRES_PASSWORD: job_match_password
+    ports:
+      - "5432:5432"
+    volumes:
+      # Persist database data between container restarts
+      - postgres_data:/var/lib/postgresql/data
+      # Auto-run schema files on first start (alphabetical order)
+      - ./app/candidates/schema.sql:/docker-entrypoint-initdb.d/01_candidates_schema.sql:ro
+      - ./app/jobs/schema.sql:/docker-entrypoint-initdb.d/02_jobs_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U job_match_user -d job_match"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ---------------------------------------------------------------------------
+  # Flask API
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: postgresql://job_match_user:job_match_password@db:5432/job_match
+      FLASK_APP: run.py
+      FLASK_DEBUG: "0"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
