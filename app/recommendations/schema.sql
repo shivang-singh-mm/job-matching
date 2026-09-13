@@ -1,0 +1,13 @@
+-- =============================================================================
+-- recommendations/schema.sql
+-- =============================================================================
+--
+-- No recommendation table is required at this stage.
+--
+-- Recommendation results are calculated dynamically at query time using the
+-- candidates, candidate_experience, candidate_skills, candidate_locations,
+-- jobs, job_skills, and job_locations tables.
+--
+-- Results are NOT persisted — they are computed on demand by the
+-- recommendation service and returned directly to the API caller.
+-- =============================================================================
