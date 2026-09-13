@@ -3,6 +3,7 @@ from flask import Flask
 from app.config import Config
 from app.candidates.routes import candidates_bp
 from app.jobs.routes import jobs_bp
+from app.recommendations.routes import recommendations_bp
 
 
 def create_app() -> Flask:
@@ -13,5 +14,6 @@ def create_app() -> Flask:
     # Register blueprints
     app.register_blueprint(candidates_bp, url_prefix="/candidates")
     app.register_blueprint(jobs_bp, url_prefix="/jobs")
+    app.register_blueprint(recommendations_bp, url_prefix="/recommendations")
 
     return app
