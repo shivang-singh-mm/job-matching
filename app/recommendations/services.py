@@ -123,7 +123,7 @@ def get_recommendations(job_id: str, weights: dict, limit: int) -> dict:
         candidates = crud.fetch_all_candidates_for_recommendation(conn)
 
         if not candidates:
-            return _build_response(job, job_skills_rows, job_locations_rows, weights, [], 0)
+            return _build_response([], 0)
 
         candidate_ids = [str(c["id"]) for c in candidates]
 
@@ -186,12 +186,12 @@ def get_recommendations(job_id: str, weights: dict, limit: int) -> dict:
             "candidate": {
                 "id": cid,
                 "name": candidate["name"],
-                "summary": candidate["summary"],
                 "expected_salary": float(candidate["expected_salary"]) if candidate["expected_salary"] is not None else None,
                 "years_of_experience": float(candidate["years_of_experience"]) if candidate["years_of_experience"] is not None else None,
+                "skills": candidate_skill_names_raw,
+                "locations": candidate_cities,
             },
             "score": final,
-            "breakdown": _build_breakdown(nth_score, loc_score, sal_score, exp_score, weights),
             # Secondary sort key stored temporarily — removed before response
             "_candidate_id": cid,
         })
@@ -208,7 +208,7 @@ def get_recommendations(job_id: str, weights: dict, limit: int) -> dict:
     for r in ranked:
         del r["_candidate_id"]
 
-    return _build_response(job, job_skills_rows, job_locations_rows, weights, ranked, len(scored))
+    return _build_response(ranked, len(scored))
 
 
 # ---------------------------------------------------------------------------
@@ -216,39 +216,10 @@ def get_recommendations(job_id: str, weights: dict, limit: int) -> dict:
 # ---------------------------------------------------------------------------
 
 def _build_response(
-    job: dict,
-    job_skills_rows: list[dict],
-    job_locations_rows: list[dict],
-    weights: dict,
     results: list[dict],
     total_results: int,
 ) -> dict:
     return {
-        "job": {
-            "id": str(job["id"]),
-            "title": job["title"],
-            "company_name": job["company_name"],
-            "description": job["description"],
-            "min_years_experience": float(job["min_years_experience"]) if job["min_years_experience"] is not None else None,
-            "salary_min": float(job["salary_min"]) if job["salary_min"] is not None else None,
-            "salary_max": float(job["salary_max"]) if job["salary_max"] is not None else None,
-            "remote_allowed": job["remote_allowed"],
-            "skills": [
-                {"skill_name": r["skill_name"], "skill_type": r["skill_type"]}
-                for r in job_skills_rows
-            ],
-            "required_skills": [
-                {"skill_name": r["skill_name"], "skill_type": r["skill_type"]}
-                for r in job_skills_rows
-            ],
-            "locations": [r["city"] for r in job_locations_rows],
-        },
-        "weights": {
-            "nice_to_have": weights["nice_to_have"],
-            "location": weights["location"],
-            "salary": weights["salary"],
-            "experience": weights["experience"],
-        },
         "results": results,
         "total_results": total_results,
     }
@@ -295,7 +266,7 @@ def get_job_recommendations(candidate_id: str, weights: dict, limit: int) -> dic
         jobs = crud.fetch_all_jobs_for_recommendation(conn)
 
         if not jobs:
-            return _build_job_response(candidate, candidate_skill_rows, candidate_location_rows, weights, [], 0)
+            return _build_job_response([], 0)
 
         job_ids = [str(j["id"]) for j in jobs]
 
@@ -359,23 +330,14 @@ def get_job_recommendations(candidate_id: str, weights: dict, limit: int) -> dic
                 "id": jid,
                 "title": job["title"],
                 "company_name": job["company_name"],
-                "description": job["description"],
                 "min_years_experience": float(job["min_years_experience"]) if job["min_years_experience"] is not None else None,
                 "salary_min": float(job["salary_min"]) if job["salary_min"] is not None else None,
                 "salary_max": float(job["salary_max"]) if job["salary_max"] is not None else None,
                 "remote_allowed": job["remote_allowed"],
-                "skills": [
-                    {"skill_name": r["skill_name"], "skill_type": r["skill_type"]}
-                    for r in job_skill_rows
-                ],
-                "required_skills": [
-                    {"skill_name": r["skill_name"], "skill_type": r["skill_type"]}
-                    for r in job_skill_rows
-                ],
+                "skills": [r["skill_name"] for r in job_skill_rows],
                 "locations": [r["city"] for r in job_location_rows],
             },
-            "final_score": final,
-            "breakdown": _build_breakdown(nth_score, loc_score, sal_score, exp_score, weights),
+            "score": final,
             # Secondary sort key — removed before returning
             "_job_id": jid,
         })
@@ -383,14 +345,14 @@ def get_job_recommendations(candidate_id: str, weights: dict, limit: int) -> dic
     # ------------------------------------------------------------------
     # 5. Rank — descending score, then ascending job_id for stability
     # ------------------------------------------------------------------
-    scored.sort(key=lambda r: (-r["final_score"], r["_job_id"]))
+    scored.sort(key=lambda r: (-r["score"], r["_job_id"]))
 
     ranked = scored[:limit]
 
     for r in ranked:
         del r["_job_id"]
 
-    return _build_job_response(candidate, candidate_skill_rows, candidate_location_rows, weights, ranked, len(scored))
+    return _build_job_response(ranked, len(scored))
 
 
 def _group_by_job(rows: list[dict], key: str = "job_id") -> dict[str, list[dict]]:
@@ -406,29 +368,10 @@ def _group_by_job(rows: list[dict], key: str = "job_id") -> dict[str, list[dict]
 
 
 def _build_job_response(
-    candidate: dict,
-    candidate_skill_rows: list[dict],
-    candidate_location_rows: list[dict],
-    weights: dict,
     results: list[dict],
     total_results: int,
 ) -> dict:
     return {
-        "candidate": {
-            "id": str(candidate["id"]),
-            "name": candidate["name"],
-            "summary": candidate["summary"],
-            "expected_salary": float(candidate["expected_salary"]) if candidate["expected_salary"] is not None else None,
-            "years_of_experience": float(candidate["years_of_experience"]) if candidate["years_of_experience"] is not None else None,
-            "skills": [r["skill_name"] for r in candidate_skill_rows],
-            "locations": [r["city"] for r in candidate_location_rows],
-        },
-        "weights": {
-            "nice_to_have": weights["nice_to_have"],
-            "location": weights["location"],
-            "salary": weights["salary"],
-            "experience": weights["experience"],
-        },
         "results": results,
         "total_results": total_results,
     }
