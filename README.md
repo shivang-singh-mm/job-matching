@@ -11,7 +11,7 @@ A Flask + PostgreSQL REST API for matching candidates with jobs using a transpar
 
 ## Core Features
 
-* Create candidates with skills, experience, salary expectations, and locations.
+* Create candidates with skills, years of experience, salary expectations, and locations.
 * Create jobs with required skills, experience, salary range, locations, and remote availability.
 * Recommend jobs for a candidate.
 * Recommend candidates for a job.
@@ -26,7 +26,7 @@ A Flask + PostgreSQL REST API for matching candidates with jobs using a transpar
 POST /candidates
 ```
 
-Creates a candidate with their profile, skills, experience, salary expectation, and location.
+Creates a candidate with their profile, skills, years of experience, salary expectation, and location.
 
 ### Create Job
 

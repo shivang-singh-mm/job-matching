@@ -1,6 +1,6 @@
 -- =============================================================================
 -- candidates/schema.sql
--- Tables: candidates, candidate_experience, candidate_skills, candidate_locations
+-- Tables: candidates, candidate_skills, candidate_locations
 -- =============================================================================
 
 -- Enable UUID generation
@@ -24,27 +24,6 @@ CREATE TABLE IF NOT EXISTS candidates (
 );
 
 
--- -----------------------------------------------------------------------------
--- candidate_experience
--- Individual employment records for a candidate.
--- Experience duration is derived from start_date / end_date at query time —
--- do NOT store years_of_experience here.
--- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS candidate_experience (
-    id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    candidate_id UUID        NOT NULL REFERENCES candidates(id) ON DELETE CASCADE,
-    company_name VARCHAR     NOT NULL,
-    job_title    VARCHAR     NOT NULL,
-    start_date   DATE        NOT NULL,
-    end_date     DATE,                          -- NULL means currently employed
-    description  TEXT,
-    created_at   TIMESTAMP   NOT NULL DEFAULT NOW(),
-
-    CONSTRAINT chk_experience_dates CHECK (end_date IS NULL OR end_date >= start_date)
-);
-
-CREATE INDEX IF NOT EXISTS idx_candidate_experience_candidate_id
-    ON candidate_experience (candidate_id);
 
 
 -- -----------------------------------------------------------------------------

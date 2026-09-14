@@ -10,8 +10,6 @@ No business logic lives here — only database I/O.
 
 from __future__ import annotations
 
-from typing import Any
-
 
 # ---------------------------------------------------------------------------
 # candidates
@@ -73,40 +71,6 @@ def fetch_skills_by_candidate(conn, candidate_id: str) -> list[dict]:
         return [dict(r) for r in cur.fetchall()]
 
 
-# ---------------------------------------------------------------------------
-# candidate_experience
-# ---------------------------------------------------------------------------
-
-def insert_candidate_experience(
-    conn,
-    candidate_id: str,
-    company_name: str,
-    job_title: str,
-    start_date: str,
-    end_date: str | None,
-    description: str | None,
-) -> dict:
-    sql = """
-        INSERT INTO candidate_experience
-            (candidate_id, company_name, job_title, start_date, end_date, description)
-        VALUES (%s, %s, %s, %s, %s, %s)
-        RETURNING id, candidate_id, company_name, job_title, start_date, end_date, description, created_at
-    """
-    with conn.cursor() as cur:
-        cur.execute(sql, (candidate_id, company_name, job_title, start_date, end_date, description))
-        return dict(cur.fetchone())
-
-
-def fetch_experience_by_candidate(conn, candidate_id: str) -> list[dict]:
-    sql = """
-        SELECT id, company_name, job_title, start_date, end_date, description, created_at
-        FROM candidate_experience
-        WHERE candidate_id = %s
-        ORDER BY start_date DESC
-    """
-    with conn.cursor() as cur:
-        cur.execute(sql, (candidate_id,))
-        return [dict(r) for r in cur.fetchall()]
 
 
 # ---------------------------------------------------------------------------

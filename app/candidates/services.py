@@ -21,7 +21,7 @@ from app.candidates import crud
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _serialize_candidate(candidate: dict, skills: list, experience: list, locations: list) -> dict:
+def _serialize_candidate(candidate: dict, skills: list, locations: list) -> dict:
     """Merge a candidate row with its child collections into one response dict."""
     return {
         "id": str(candidate["id"]),
@@ -37,18 +37,6 @@ def _serialize_candidate(candidate: dict, skills: list, experience: list, locati
                 "created_at": s["created_at"].isoformat(),
             }
             for s in skills
-        ],
-        "experience": [
-            {
-                "id": str(e["id"]),
-                "company_name": e["company_name"],
-                "job_title": e["job_title"],
-                "start_date": e["start_date"].isoformat() if e["start_date"] else None,
-                "end_date": e["end_date"].isoformat() if e["end_date"] else None,
-                "description": e["description"],
-                "created_at": e["created_at"].isoformat(),
-            }
-            for e in experience
         ],
         "locations": [
             {
@@ -93,12 +81,6 @@ def _validate_create_payload(data: dict) -> list[str]:
             errors.append("Each skill must have a non-empty 'skill_name'.")
             break
 
-    for exp in data.get("experience", []):
-        for required_field in ("company_name", "job_title", "start_date"):
-            if not isinstance(exp.get(required_field, ""), str) or not exp[required_field].strip():
-                errors.append(f"Each experience entry must have a non-empty '{required_field}'.")
-                break
-
     for loc in data.get("locations", []):
         if not isinstance(loc.get("city", ""), str) or not loc["city"].strip():
             errors.append("Each location must have a non-empty 'city'.")
@@ -130,7 +112,6 @@ def create_candidate(data: dict) -> dict:
     expected_salary = data["expected_salary"]
     years_of_experience = data.get("years_of_experience")  # optional
     skills = data.get("skills") or []
-    experience = data.get("experience") or []
     locations = data.get("locations") or []
 
     with get_connection() as conn:
@@ -148,19 +129,6 @@ def create_candidate(data: dict) -> dict:
                 )
                 inserted_skills.append(row)
 
-            inserted_experience = []
-            for e in experience:
-                row = crud.insert_candidate_experience(
-                    conn,
-                    candidate_id,
-                    e["company_name"].strip(),
-                    e["job_title"].strip(),
-                    e["start_date"],
-                    e.get("end_date"),
-                    e.get("description"),
-                )
-                inserted_experience.append(row)
-
             inserted_locations = []
             for loc in locations:
                 row = crud.insert_candidate_location(
@@ -176,7 +144,7 @@ def create_candidate(data: dict) -> dict:
             conn.rollback()
             raise
 
-    return _serialize_candidate(candidate, inserted_skills, inserted_experience, inserted_locations)
+    return _serialize_candidate(candidate, inserted_skills, inserted_locations)
 
 
 def get_candidate_by_id(candidate_id: str) -> dict | None:
@@ -190,10 +158,9 @@ def get_candidate_by_id(candidate_id: str) -> dict | None:
             return None
 
         skills = crud.fetch_skills_by_candidate(conn, candidate_id)
-        experience = crud.fetch_experience_by_candidate(conn, candidate_id)
         locations = crud.fetch_locations_by_candidate(conn, candidate_id)
 
-    return _serialize_candidate(candidate, skills, experience, locations)
+    return _serialize_candidate(candidate, skills, locations)
 
 
 def get_all_candidates() -> list[dict]:
@@ -211,14 +178,12 @@ def get_all_candidates() -> list[dict]:
 
         # Fetch all children in bulk — one query per child table
         all_skills = _fetch_children_bulk(conn, candidate_ids, crud.fetch_skills_by_candidate)
-        all_experience = _fetch_children_bulk(conn, candidate_ids, crud.fetch_experience_by_candidate)
         all_locations = _fetch_children_bulk(conn, candidate_ids, crud.fetch_locations_by_candidate)
 
     return [
         _serialize_candidate(
             c,
             all_skills.get(str(c["id"]), []),
-            all_experience.get(str(c["id"]), []),
             all_locations.get(str(c["id"]), []),
         )
         for c in candidates

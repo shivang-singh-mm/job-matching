@@ -1,0 +1,238 @@
+{
+  "info": {
+    "name": "Job Match API",
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "description": "Complete API collection for the Job Match API — candidates, jobs, and both recommendation directions.\n\nBase URL variable: {{base_url}} — default is http://localhost:5000\n\nReplace {{candidate_id}} and {{job_id}} with real UUIDs after creating records.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "candidate_id",
+      "value": "",
+      "type": "string",
+      "description": "UUID of a candidate — fill in after POST /candidates"
+    },
+    {
+      "key": "job_id",
+      "value": "",
+      "type": "string",
+      "description": "UUID of a job — fill in after POST /jobs"
+    }
+  ],
+  "item": [
+    {
+      "name": "Candidates",
+      "item": [
+        {
+          "name": "Create Candidate",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/candidates",
+              "host": ["{{base_url}}"],
+              "path": ["candidates"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Aisha Sharma\",\n  \"summary\": \"Full-stack engineer with 5 years of experience in Python and cloud infrastructure.\",\n  \"expected_salary\": 1400000,\n  \"years_of_experience\": 5,\n  \"skills\": [\n    { \"skill_name\": \"Python\", \"proficiency_level\": \"expert\" },\n    { \"skill_name\": \"PostgreSQL\", \"proficiency_level\": \"intermediate\" },\n    { \"skill_name\": \"Docker\", \"proficiency_level\": \"intermediate\" },\n    { \"skill_name\": \"Redis\", \"proficiency_level\": \"beginner\" }\n  ],\n  \"locations\": [\n    { \"city\": \"Gurugram\", \"location_type\": \"current\" },\n    { \"city\": \"Bangalore\", \"location_type\": \"preferred\" }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Create a new candidate profile.\n\nRequired fields: name, expected_salary\nOptional fields: summary, years_of_experience, skills[], locations[]"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Candidates",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/candidates",
+              "host": ["{{base_url}}"],
+              "path": ["candidates"]
+            },
+            "description": "Return all candidate profiles with their skills and locations."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Candidate by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/candidates/{{candidate_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["candidates", "{{candidate_id}}"]
+            },
+            "description": "Return a single candidate by UUID. Returns 404 if not found."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Jobs",
+      "item": [
+        {
+          "name": "Create Job",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/jobs",
+              "host": ["{{base_url}}"],
+              "path": ["jobs"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Backend Engineer\",\n  \"company_name\": \"Acme Corp\",\n  \"description\": \"We are looking for a backend engineer with strong Python skills.\",\n  \"min_years_experience\": 3,\n  \"salary_min\": 1000000,\n  \"salary_max\": 1600000,\n  \"remote_allowed\": true,\n  \"skills\": [\n    { \"skill_name\": \"Python\", \"skill_type\": \"must_have\" },\n    { \"skill_name\": \"PostgreSQL\", \"skill_type\": \"must_have\" },\n    { \"skill_name\": \"Docker\", \"skill_type\": \"nice_to_have\" },\n    { \"skill_name\": \"Redis\", \"skill_type\": \"nice_to_have\" }\n  ],\n  \"locations\": [\n    { \"city\": \"Gurugram\" },\n    { \"city\": \"Bangalore\" }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Create a new job posting.\n\nRequired fields: title, company_name, salary_min, salary_max, remote_allowed\nOptional fields: description, min_years_experience, skills[], locations[]\n\nskill_type must be 'must_have' or 'nice_to_have'."
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Jobs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/jobs",
+              "host": ["{{base_url}}"],
+              "path": ["jobs"]
+            },
+            "description": "Return all job postings with their skills and locations."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Job by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/jobs/{{job_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["jobs", "{{job_id}}"]
+            },
+            "description": "Return a single job posting by UUID. Returns 404 if not found."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Recommendations",
+      "item": [
+        {
+          "name": "Job → Candidates (recommend candidates for a job)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/recommendations/candidates/{{job_id}}?nice_to_have_weight=30&location_weight=30&salary_weight=20&experience_weight=20&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["recommendations", "candidates", "{{job_id}}"],
+              "query": [
+                {
+                  "key": "nice_to_have_weight",
+                  "value": "30",
+                  "description": "Weight for nice-to-have skill score (0–100). All four weights must sum to exactly 100."
+                },
+                {
+                  "key": "location_weight",
+                  "value": "30",
+                  "description": "Weight for location score (0–100)."
+                },
+                {
+                  "key": "salary_weight",
+                  "value": "20",
+                  "description": "Weight for salary compatibility score (0–100)."
+                },
+                {
+                  "key": "experience_weight",
+                  "value": "20",
+                  "description": "Weight for experience score (0–100)."
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Maximum number of results to return (default 10)."
+                }
+              ]
+            },
+            "description": "Given a job ID, return the best-matching candidates ranked by a weighted score.\n\nHard filter: candidates missing any must-have skill are excluded.\n\nAll four weights are required and must sum to exactly 100.\n\nReturns:\n- job details\n- weights used\n- ranked candidates with final score and per-dimension breakdown\n- total_results (number of eligible candidates before limit)"
+          },
+          "response": []
+        },
+        {
+          "name": "Candidate → Jobs (recommend jobs for a candidate)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/recommendations/jobs/{{candidate_id}}?nice_to_have_weight=30&location_weight=30&salary_weight=20&experience_weight=20&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["recommendations", "jobs", "{{candidate_id}}"],
+              "query": [
+                {
+                  "key": "nice_to_have_weight",
+                  "value": "30",
+                  "description": "Weight for nice-to-have skill score (0–100). All four weights must sum to exactly 100."
+                },
+                {
+                  "key": "location_weight",
+                  "value": "30",
+                  "description": "Weight for location score (0–100)."
+                },
+                {
+                  "key": "salary_weight",
+                  "value": "20",
+                  "description": "Weight for salary compatibility score (0–100)."
+                },
+                {
+                  "key": "experience_weight",
+                  "value": "20",
+                  "description": "Weight for experience score (0–100)."
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Maximum number of results to return (default 10)."
+                }
+              ]
+            },
+            "description": "Given a candidate ID, return the best-matching jobs ranked by a weighted score.\n\nHard filter: jobs whose must-have skills the candidate does not possess are excluded.\n\nAll four weights are required and must sum to exactly 100.\n\nReturns:\n- candidate details (with skills and locations)\n- weights used\n- ranked jobs with final score and per-dimension breakdown\n- total_results (number of eligible jobs before limit)"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

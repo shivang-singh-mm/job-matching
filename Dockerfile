@@ -18,7 +18,7 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # Copy installed packages from the builder stage
-COPY --from=/install /install /usr/local
+COPY --from=builder /install /usr/local
 
 # Copy application source
 COPY . .
