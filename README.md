@@ -11,16 +11,62 @@ A Flask + PostgreSQL REST API for matching candidates with jobs using a transpar
 
 ## Core Features
 
-* Create and manage candidates with skills, experience, salary expectations, and locations.
-* Create and manage jobs with required skills, experience, salary range, locations, and remote availability.
+* Create candidates with skills, experience, salary expectations, and locations.
+* Create jobs with required skills, experience, salary range, locations, and remote availability.
 * Recommend jobs for a candidate.
 * Recommend candidates for a job.
 * Use configurable scoring weights.
 * Return a transparent score breakdown for every recommendation.
 
+## API Endpoints
+
+### Create Candidate
+
+```http
+POST /candidates
+```
+
+Creates a candidate with their profile, skills, experience, salary expectation, and location.
+
+### Create Job
+
+```http
+POST /jobs
+```
+
+Creates a job with required skills, experience, salary range, location, and remote availability.
+
+### Candidate → Jobs
+
+```http
+GET /recommendations/jobs/{candidate_id}
+```
+
+Returns the best-matching jobs for a candidate.
+
+Example:
+
+```http
+GET /recommendations/jobs/{candidate_id}?nice_to_have_weight=30&location_weight=40&salary_weight=20&experience_weight=10&limit=10
+```
+
+### Job → Candidates
+
+```http
+GET /recommendations/candidates/{job_id}
+```
+
+Returns the best-matching candidates for a job.
+
+Example:
+
+```http
+GET /recommendations/candidates/{job_id}?nice_to_have_weight=30&location_weight=40&salary_weight=20&experience_weight=10&limit=10
+```
+
 ## Recommendation Logic
 
-1. **Must-have skills** are a hard filter. Candidates or jobs that do not satisfy all must-have skills are excluded.
+1. **Must-have skills** are a hard filter. Candidates missing any must-have skill are excluded.
 2. Eligible matches are scored on:
 
    * Nice-to-have skills
@@ -48,37 +94,7 @@ Final score:
 + (experience_score × experience_weight / 100)
 ```
 
-Results are ranked by final score and returned with a breakdown showing the contribution of each factor.
-
-## Recommendation APIs
-
-### Candidate → Jobs
-
-```http
-GET /recommendations/jobs/{candidate_id}
-```
-
-Example:
-
-```http
-GET /recommendations/jobs/{candidate_id}?nice_to_have_weight=30&location_weight=40&salary_weight=20&experience_weight=10&limit=10
-```
-
-Returns the best-matching jobs for the selected candidate.
-
-### Job → Candidates
-
-```http
-GET /recommendations/candidates/{job_id}
-```
-
-Example:
-
-```http
-GET /recommendations/candidates/{job_id}?nice_to_have_weight=30&location_weight=40&salary_weight=20&experience_weight=10&limit=10
-```
-
-Returns the best-matching candidates for the selected job.
+Results are ranked by final score and returned with a breakdown showing how each factor contributed.
 
 ## Running the Project
 
@@ -96,17 +112,36 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-Configure the PostgreSQL connection using the `.env` file, then run:
+Configure the PostgreSQL connection in `.env`, then run:
 
 ```bash
 python run.py
 ```
 
+## Testing
+
+Run the test suite with:
+
+```bash
+pytest
+```
+
+Tests cover the core recommendation logic, including:
+
+* Must-have skill filtering
+* Nice-to-have scoring
+* Location scoring
+* Experience scoring
+* Salary scoring
+* Weight calculation
+
 ## Assumptions and Future Improvements
 
 * Skill and city matching is case-insensitive and whitespace-trimmed.
+* Must-have skills are used only as an eligibility filter.
+* Experience is not a hard filter and affects the recommendation score.
 * Matching currently uses deterministic rule-based scoring.
-* Future improvements could include fuzzy skill matching, semantic skill matching, pagination, authentication, and more advanced salary scoring.
+* Future improvements could include fuzzy/semantic skill matching, pagination, authentication, and more advanced salary scoring.
 
 ## AI Tools & Human Decisions
 
