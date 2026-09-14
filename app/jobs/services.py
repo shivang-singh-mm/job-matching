@@ -23,6 +23,15 @@ from app.jobs import crud
 
 def _serialize_job(job: dict, skills: list, locations: list) -> dict:
     """Merge a job row with its child collections into one response dict."""
+    serialized_skills = [
+        {
+            "id": str(s["id"]),
+            "skill_name": s["skill_name"],
+            "skill_type": s["skill_type"],
+            "created_at": s["created_at"].isoformat(),
+        }
+        for s in skills
+    ]
     return {
         "id": str(job["id"]),
         "title": job["title"],
@@ -32,15 +41,8 @@ def _serialize_job(job: dict, skills: list, locations: list) -> dict:
         "salary_min": float(job["salary_min"]) if job["salary_min"] is not None else None,
         "salary_max": float(job["salary_max"]) if job["salary_max"] is not None else None,
         "remote_allowed": job["remote_allowed"],
-        "required_skills": [
-            {
-                "id": str(s["id"]),
-                "skill_name": s["skill_name"],
-                "skill_type": s["skill_type"],
-                "created_at": s["created_at"].isoformat(),
-            }
-            for s in skills
-        ],
+        "skills": serialized_skills,
+        "required_skills": serialized_skills,
         "locations": [
             {
                 "id": str(l["id"]),
@@ -101,13 +103,15 @@ def _validate_create_payload(data: dict) -> list[str]:
 
     # Optional arrays — validate shape if provided
     valid_skill_types = {"must_have", "nice_to_have"}
-    for skill in data.get("required_skills", []):
-        if not isinstance(skill.get("skill_name", ""), str) or not skill["skill_name"].strip():
-            errors.append("Each skill must have a non-empty 'skill_name'.")
-            break
-        if skill.get("skill_type") not in valid_skill_types:
-            errors.append("Each skill's 'skill_type' must be 'must_have' or 'nice_to_have'.")
-            break
+    skills_input = data.get("skills") if "skills" in data else data.get("required_skills", [])
+    if skills_input:
+        for skill in skills_input:
+            if not isinstance(skill.get("skill_name", ""), str) or not skill["skill_name"].strip():
+                errors.append("Each skill must have a non-empty 'skill_name'.")
+                break
+            if skill.get("skill_type") not in valid_skill_types:
+                errors.append("Each skill's 'skill_type' must be 'must_have' or 'nice_to_have'.")
+                break
 
     for loc in data.get("locations", []):
         if not isinstance(loc.get("city", ""), str) or not loc["city"].strip():
@@ -139,7 +143,7 @@ def create_job(data: dict) -> dict:
     salary_min = data["salary_min"]
     salary_max = data["salary_max"]
     remote_allowed = data["remote_allowed"]
-    required_skills = data.get("required_skills") or []
+    required_skills = data.get("skills") if "skills" in data else data.get("required_skills", [])
     locations = data.get("locations") or []
 
     with get_connection() as conn:

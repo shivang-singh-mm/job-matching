@@ -95,7 +95,7 @@ def fetch_all_candidate_skills_bulk(conn, candidate_ids: list[str]) -> list[dict
     sql = """
         SELECT candidate_id, skill_name, proficiency_level
         FROM candidate_skills
-        WHERE candidate_id = ANY(%s)
+        WHERE candidate_id = ANY(%s::uuid[])
     """
     with conn.cursor() as cur:
         cur.execute(sql, (candidate_ids,))
@@ -114,7 +114,7 @@ def fetch_all_candidate_locations_bulk(conn, candidate_ids: list[str]) -> list[d
     sql = """
         SELECT candidate_id, city, location_type
         FROM candidate_locations
-        WHERE candidate_id = ANY(%s)
+        WHERE candidate_id = ANY(%s::uuid[])
     """
     with conn.cursor() as cur:
         cur.execute(sql, (candidate_ids,))
@@ -169,7 +169,7 @@ def fetch_all_job_skills_bulk(conn, job_ids: list[str]) -> list[dict]:
     sql = """
         SELECT job_id, skill_name, skill_type
         FROM job_skills
-        WHERE job_id = ANY(%s)
+        WHERE job_id = ANY(%s::uuid[])
     """
     with conn.cursor() as cur:
         cur.execute(sql, (job_ids,))
@@ -188,7 +188,7 @@ def fetch_all_job_locations_bulk(conn, job_ids: list[str]) -> list[dict]:
     sql = """
         SELECT job_id, city
         FROM job_locations
-        WHERE job_id = ANY(%s)
+        WHERE job_id = ANY(%s::uuid[])
     """
     with conn.cursor() as cur:
         cur.execute(sql, (job_ids,))

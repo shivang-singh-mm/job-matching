@@ -233,6 +233,10 @@ def _build_response(
             "salary_min": float(job["salary_min"]) if job["salary_min"] is not None else None,
             "salary_max": float(job["salary_max"]) if job["salary_max"] is not None else None,
             "remote_allowed": job["remote_allowed"],
+            "skills": [
+                {"skill_name": r["skill_name"], "skill_type": r["skill_type"]}
+                for r in job_skills_rows
+            ],
             "required_skills": [
                 {"skill_name": r["skill_name"], "skill_type": r["skill_type"]}
                 for r in job_skills_rows
@@ -360,6 +364,10 @@ def get_job_recommendations(candidate_id: str, weights: dict, limit: int) -> dic
                 "salary_min": float(job["salary_min"]) if job["salary_min"] is not None else None,
                 "salary_max": float(job["salary_max"]) if job["salary_max"] is not None else None,
                 "remote_allowed": job["remote_allowed"],
+                "skills": [
+                    {"skill_name": r["skill_name"], "skill_type": r["skill_type"]}
+                    for r in job_skill_rows
+                ],
                 "required_skills": [
                     {"skill_name": r["skill_name"], "skill_type": r["skill_type"]}
                     for r in job_skill_rows
