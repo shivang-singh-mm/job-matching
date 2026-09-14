@@ -111,3 +111,43 @@ def recommend_candidates(job_id: str):
         return jsonify({"error": "An unexpected error occurred.", "details": str(exc)}), 500
 
     return jsonify(result), 200
+
+
+@recommendations_bp.route("/jobs/<string:candidate_id>", methods=["GET"])
+def recommend_jobs(candidate_id: str):
+    """
+    GET /recommendations/jobs/<candidate_id>
+
+    Return the best-matching jobs for a given candidate, ranked using the
+    same four-dimension scoring system as GET /recommendations/candidates/<job_id>.
+
+    Query parameters:
+      nice_to_have_weight  (required, 0–100)
+      location_weight      (required, 0–100)
+      salary_weight        (required, 0–100)
+      experience_weight    (required, 0–100)
+      limit                (optional, positive int, default 10)
+
+    All four weights must sum to exactly 100.
+    """
+    # -- Validate weights --------------------------------------------------
+    weights, weight_error = _parse_weights(request.args)
+    if weight_error:
+        return jsonify({"error": "Validation failed.", "details": weight_error}), 400
+
+    # -- Validate limit ----------------------------------------------------
+    limit, limit_error = _parse_limit(request.args)
+    if limit_error:
+        return jsonify({"error": "Validation failed.", "details": limit_error}), 400
+
+    # -- Run recommendation engine ----------------------------------------
+    try:
+        result = services.get_job_recommendations(candidate_id, weights, limit)
+    except LookupError as exc:
+        return jsonify({"error": str(exc)}), 404
+    except psycopg2.Error as exc:
+        return jsonify({"error": "Database error.", "details": str(exc)}), 500
+    except Exception as exc:
+        return jsonify({"error": "An unexpected error occurred.", "details": str(exc)}), 500
+
+    return jsonify(result), 200

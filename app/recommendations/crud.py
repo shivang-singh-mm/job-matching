@@ -119,3 +119,77 @@ def fetch_all_candidate_locations_bulk(conn, candidate_ids: list[str]) -> list[d
     with conn.cursor() as cur:
         cur.execute(sql, (candidate_ids,))
         return [dict(r) for r in cur.fetchall()]
+
+
+# ---------------------------------------------------------------------------
+# Job data — bulk fetches for candidate → job recommendation direction
+# ---------------------------------------------------------------------------
+
+def fetch_candidate_for_recommendation(conn, candidate_id: str) -> dict | None:
+    """
+    Return the candidate row needed for recommendation scoring.
+    Returns None if not found.
+    """
+    sql = """
+        SELECT id, name, summary, expected_salary, years_of_experience
+        FROM candidates
+        WHERE id = %s
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (candidate_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def fetch_all_jobs_for_recommendation(conn) -> list[dict]:
+    """
+    Return every job with the fields needed for scoring.
+    """
+    sql = """
+        SELECT id, title, company_name, description,
+               min_years_experience, salary_min, salary_max,
+               remote_allowed
+        FROM jobs
+        ORDER BY id ASC
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql)
+        return [dict(r) for r in cur.fetchall()]
+
+
+def fetch_all_job_skills_bulk(conn, job_ids: list[str]) -> list[dict]:
+    """
+    Return skill rows for all given job IDs in one query.
+    Each row: {job_id, skill_name, skill_type}
+
+    Used to populate a {job_id -> [skills]} map without N+1 queries.
+    """
+    if not job_ids:
+        return []
+    sql = """
+        SELECT job_id, skill_name, skill_type
+        FROM job_skills
+        WHERE job_id = ANY(%s)
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (job_ids,))
+        return [dict(r) for r in cur.fetchall()]
+
+
+def fetch_all_job_locations_bulk(conn, job_ids: list[str]) -> list[dict]:
+    """
+    Return location rows for all given job IDs in one query.
+    Each row: {job_id, city}
+
+    Used to populate a {job_id -> [locations]} map without N+1 queries.
+    """
+    if not job_ids:
+        return []
+    sql = """
+        SELECT job_id, city
+        FROM job_locations
+        WHERE job_id = ANY(%s)
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (job_ids,))
+        return [dict(r) for r in cur.fetchall()]

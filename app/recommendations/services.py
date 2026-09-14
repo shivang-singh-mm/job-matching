@@ -248,3 +248,179 @@ def _build_response(
         "results": results,
         "total_results": total_results,
     }
+
+
+# ---------------------------------------------------------------------------
+# Candidate → Job recommendation
+# ---------------------------------------------------------------------------
+
+def get_job_recommendations(candidate_id: str, weights: dict, limit: int) -> dict:
+    """
+    Given a candidate, return the best-matching jobs ranked by the same
+    four-dimension scoring system used by get_recommendations().
+
+    Parameters
+    ----------
+    candidate_id : UUID string of the target candidate.
+    weights      : dict with keys nice_to_have, location, salary, experience
+                   (each a float; all four must sum to 100).
+    limit        : maximum number of jobs to return.
+
+    Returns
+    -------
+    Response dict ready to be JSON-serialised by the route layer.
+
+    Raises
+    ------
+    LookupError  if the candidate does not exist.
+    """
+    with get_connection() as conn:
+        # ------------------------------------------------------------------
+        # 1. Fetch the candidate
+        # ------------------------------------------------------------------
+        candidate = crud.fetch_candidate_for_recommendation(conn, candidate_id)
+        if candidate is None:
+            raise LookupError(f"Candidate '{candidate_id}' not found.")
+
+        candidate_skill_rows = crud.fetch_all_candidate_skills_bulk(conn, [candidate_id])
+        candidate_location_rows = crud.fetch_all_candidate_locations_bulk(conn, [candidate_id])
+
+        # ------------------------------------------------------------------
+        # 2. Fetch all jobs + child data in bulk (no N+1)
+        # ------------------------------------------------------------------
+        jobs = crud.fetch_all_jobs_for_recommendation(conn)
+
+        if not jobs:
+            return _build_job_response(candidate, candidate_skill_rows, candidate_location_rows, weights, [], 0)
+
+        job_ids = [str(j["id"]) for j in jobs]
+
+        all_job_skill_rows = crud.fetch_all_job_skills_bulk(conn, job_ids)
+        all_job_location_rows = crud.fetch_all_job_locations_bulk(conn, job_ids)
+
+    # Group job child rows by job_id — outside the connection context
+    skills_by_job = _group_by_job(all_job_skill_rows)
+    locations_by_job = _group_by_job(all_job_location_rows)
+
+    # ------------------------------------------------------------------
+    # 3. Derive candidate data for scoring
+    # ------------------------------------------------------------------
+    candidate_skill_names_normalised = {
+        _normalise(r["skill_name"]) for r in candidate_skill_rows
+    }
+    candidate_skill_names_raw = [r["skill_name"] for r in candidate_skill_rows]
+    candidate_cities = [r["city"] for r in candidate_location_rows]
+
+    # ------------------------------------------------------------------
+    # 4. Score each job
+    # ------------------------------------------------------------------
+    scored: list[dict] = []
+
+    for job in jobs:
+        jid = str(job["id"])
+
+        job_skill_rows = skills_by_job.get(jid, [])
+        job_location_rows = locations_by_job.get(jid, [])
+
+        must_have_skills = [r["skill_name"] for r in job_skill_rows if r["skill_type"] == "must_have"]
+        nice_to_have_skills = [r["skill_name"] for r in job_skill_rows if r["skill_type"] == "nice_to_have"]
+        job_cities = [r["city"] for r in job_location_rows]
+        remote_allowed: bool = bool(job["remote_allowed"])
+
+        # Hard filter — candidate must have every must-have skill for this job
+        if not _passes_must_have_filter(candidate_skill_names_normalised, must_have_skills):
+            continue
+
+        # Dimension scores — reuse scorer functions unchanged
+        nth_score = sc.calculate_nice_to_have_score(nice_to_have_skills, candidate_skill_names_raw)
+        loc_score = sc.calculate_location_score(job_cities, remote_allowed, candidate_cities)
+        sal_score = sc.calculate_salary_score(
+            candidate["expected_salary"],
+            job["salary_min"],
+            job["salary_max"],
+        )
+        exp_score = sc.calculate_experience_score(
+            candidate["years_of_experience"],
+            job["min_years_experience"],
+        )
+
+        final = sc.calculate_final_score(
+            nth_score, loc_score, sal_score, exp_score,
+            weights["nice_to_have"], weights["location"],
+            weights["salary"], weights["experience"],
+        )
+
+        scored.append({
+            "job": {
+                "id": jid,
+                "title": job["title"],
+                "company_name": job["company_name"],
+                "description": job["description"],
+                "min_years_experience": float(job["min_years_experience"]) if job["min_years_experience"] is not None else None,
+                "salary_min": float(job["salary_min"]) if job["salary_min"] is not None else None,
+                "salary_max": float(job["salary_max"]) if job["salary_max"] is not None else None,
+                "remote_allowed": job["remote_allowed"],
+                "required_skills": [
+                    {"skill_name": r["skill_name"], "skill_type": r["skill_type"]}
+                    for r in job_skill_rows
+                ],
+                "locations": [r["city"] for r in job_location_rows],
+            },
+            "final_score": final,
+            "breakdown": _build_breakdown(nth_score, loc_score, sal_score, exp_score, weights),
+            # Secondary sort key — removed before returning
+            "_job_id": jid,
+        })
+
+    # ------------------------------------------------------------------
+    # 5. Rank — descending score, then ascending job_id for stability
+    # ------------------------------------------------------------------
+    scored.sort(key=lambda r: (-r["final_score"], r["_job_id"]))
+
+    ranked = scored[:limit]
+
+    for r in ranked:
+        del r["_job_id"]
+
+    return _build_job_response(candidate, candidate_skill_rows, candidate_location_rows, weights, ranked, len(scored))
+
+
+def _group_by_job(rows: list[dict], key: str = "job_id") -> dict[str, list[dict]]:
+    """
+    Group a flat list of job-child rows into a dict keyed by job_id.
+    Mirrors _group_by_candidate() for the job direction.
+    """
+    grouped: dict[str, list[dict]] = {}
+    for row in rows:
+        jid = str(row[key])
+        grouped.setdefault(jid, []).append(row)
+    return grouped
+
+
+def _build_job_response(
+    candidate: dict,
+    candidate_skill_rows: list[dict],
+    candidate_location_rows: list[dict],
+    weights: dict,
+    results: list[dict],
+    total_results: int,
+) -> dict:
+    return {
+        "candidate": {
+            "id": str(candidate["id"]),
+            "name": candidate["name"],
+            "summary": candidate["summary"],
+            "expected_salary": float(candidate["expected_salary"]) if candidate["expected_salary"] is not None else None,
+            "years_of_experience": float(candidate["years_of_experience"]) if candidate["years_of_experience"] is not None else None,
+            "skills": [r["skill_name"] for r in candidate_skill_rows],
+            "locations": [r["city"] for r in candidate_location_rows],
+        },
+        "weights": {
+            "nice_to_have": weights["nice_to_have"],
+            "location": weights["location"],
+            "salary": weights["salary"],
+            "experience": weights["experience"],
+        },
+        "results": results,
+        "total_results": total_results,
+    }
