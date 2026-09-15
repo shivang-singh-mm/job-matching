@@ -67,16 +67,54 @@ GET /recommendations/candidates/{job_id}?nice_to_have_weight=30&location_weight=
 ## Recommendation Logic
 
 1. **Must-have skills** are a hard filter. Candidates missing any must-have skill are excluded.
-2. Eligible matches are scored on:
+2. Eligible matches are scored on four dimensions. Each produces a score from `0–100`.
+3. The API accepts custom weights for each dimension. The four weights must total `100`.
 
-   * Nice-to-have skills
-   * Location
-   * Salary compatibility
-   * Experience
-3. Each factor produces a score from `0–100`.
-4. The API accepts custom weights for each factor. The four weights must total `100`.
+### Nice-to-have score
 
-Example:
+```text
+matched_nice_to_have_skills / total_nice_to_have_skills × 100
+```
+
+* If the job has no nice-to-have skills → score = `100`
+* Skill comparison is case-insensitive and whitespace-trimmed.
+
+### Location score
+
+```text
+Exact city match      → 100
+No match, remote OK   → 70
+No match, no remote   → 0
+```
+
+City comparison is case-insensitive and whitespace-trimmed.
+
+### Experience score
+
+```text
+candidate_years >= required_years  → 100
+candidate_years < required_years   → (candidate_years / required_years) × 100
+No minimum requirement             → 100
+No candidate experience on record  → 0
+```
+
+Experience is never a hard filter — it only affects the score.
+
+### Salary score
+
+```text
+candidate_salary <= salary_max            → 100
+candidate_salary == 2 × salary_max        → 0
+salary_max < candidate_salary < 2× max   → 100 × (1 − overshoot_ratio)
+  where overshoot_ratio = (candidate_salary − salary_max) / salary_max
+Missing salary data (either side)        → 50  (neutral)
+```
+
+Salary is never a hard filter — it only affects the score.
+
+### Final weighted score
+
+Example weights:
 
 ```text
 nice_to_have = 30
@@ -85,7 +123,7 @@ salary       = 20
 experience   = 10
 ```
 
-Final score:
+Formula:
 
 ```text
 (nice_to_have_score × nice_to_have_weight / 100)
@@ -95,6 +133,7 @@ Final score:
 ```
 
 Results are ranked by final score and returned with a breakdown showing how each factor contributed.
+
 
 ## Running the Project
 
